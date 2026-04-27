@@ -1,19 +1,7 @@
 import 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  Button,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { Text, View, TextInput, Button, Alert, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -24,6 +12,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
+import styles from './AppStyles';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD68pasmT32P9GILRhgD1LB9EXMpt694t0',
@@ -37,6 +26,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const Stack = createNativeStackNavigator();
+const MIN_PASSWORD_LENGTH = 6;
 
 const formatCurrency = (value) => {
   return Number(value).toLocaleString('pt-BR', {
@@ -50,19 +40,51 @@ const formatCurrency = (value) => {
 const currencyCards = [
   {
     id: 'usd',
-    label: 'Dólar Americano',
-    symbol: '🇺🇸',
+    label: 'USD / BRL',
+    subtitle: '1 Dólar Americano',
+    countryCode: 'US', 
     code: 'USD/BRL',
   },
   {
     id: 'eur',
-    label: 'Euro',
-    symbol: '🇪🇺',
+    label: 'EUR / BRL',
+    subtitle: '1 Euro',
+    countryCode: 'PT', 
     code: 'EUR/BRL',
   },
 ];
 
-function AuthScreen({ mode, setMode, email, setEmail, password, setPassword, handleAuth }) {
+const getFlagUrl = (countryCode) => `https://flagsapi.com/${countryCode}/flat/64.png`; // flagsapi.com
+
+function CurrencyFlags({ countryCode }) {
+  return (
+    <View style={styles.flagContainer}>
+      <Image
+        source={{ uri: getFlagUrl(countryCode) }}
+        style={styles.primaryFlag}
+        resizeMode="cover"
+      />
+      <Image
+        source={{ uri: getFlagUrl('BR') }}
+        style={styles.secondaryFlag}
+        resizeMode="cover"
+      />
+    </View>
+  );
+}
+
+function AuthScreen({
+  mode,
+  setMode,
+  email,
+  setEmail,
+  password,
+  setPassword,
+  handleAuth,
+  authLoading,
+  authError,
+  clearAuthError,
+}) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -75,13 +97,19 @@ function AuthScreen({ mode, setMode, email, setEmail, password, setPassword, han
         <View style={styles.toggleRow}>
           <TouchableOpacity
             style={[styles.toggleButton, mode === 'login' && styles.toggleActive]}
-            onPress={() => setMode('login')}
+            onPress={() => {
+              clearAuthError();
+              setMode('login');
+            }}
           >
             <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Entrar</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleButton, mode === 'signup' && styles.toggleActive]}
-            onPress={() => setMode('signup')}
+            onPress={() => {
+              clearAuthError();
+              setMode('signup');
+            }}
           >
             <Text style={[styles.toggleText, mode === 'signup' && styles.toggleTextActive]}>Cadastrar</Text>
           </TouchableOpacity>
@@ -92,61 +120,80 @@ function AuthScreen({ mode, setMode, email, setEmail, password, setPassword, han
           placeholder="Email"
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(text) => {
+            clearAuthError();
+            setEmail(text);
+          }}
         />
         <TextInput
           style={styles.input}
           placeholder="Senha"
           secureTextEntry
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(text) => {
+            clearAuthError();
+            setPassword(text);
+          }}
         />
         <View style={styles.buttonContainer}>
-          <Button title={mode === 'login' ? 'Entrar' : 'Cadastrar'} onPress={handleAuth} />
+          {authLoading ? (
+            <ActivityIndicator size="large" color="#0c4a6e" />
+          ) : (
+            <Button title={mode === 'login' ? 'Entrar' : 'Cadastrar'} onPress={handleAuth} />
+          )}
         </View>
+        {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
       </View>
       <StatusBar style="auto" />
     </KeyboardAvoidingView>
   );
 }
 
-function HomeScreen({ user, quotes, lastUpdate, loading, fetchQuotes, handleLogout }) {
-  const renderQuoteCard = ({ id, label, code, symbol }) => {
+function HomeScreen({ user, quotes, lastUpdate, loading, onRefreshPress, handleLogout }) {
+  const renderQuoteCard = ({ id, label, subtitle, countryCode }) => { //flags das moedas mrbeast
     const value = quotes[id];
     return (
       <View key={id} style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.flag}>{symbol}</Text>
-          <View style={styles.cardTitle}>
-            <Text style={styles.cardName}>{label}</Text>
-            <Text style={styles.cardCode}>{code}</Text>
+        <View style={styles.cardMainRow}>
+          <View style={styles.cardHeader}>
+            <CurrencyFlags countryCode={countryCode} />
+            <View style={styles.cardTitle}>
+              <Text style={styles.cardName}>{label}</Text>
+              <Text style={styles.cardCode}>{subtitle}</Text>
+            </View>
           </View>
+          <Text style={styles.cardValue}>
+            {value === null ? '...' : formatCurrency(value)}
+          </Text>
         </View>
-        <Text style={styles.cardValue}>
-          {value === null ? 'Carregando...' : formatCurrency(value)}
-        </Text>
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.mainTitleLight}>Cotação de Moedas</Text>
-        <Text style={styles.lastUpdate}>
-          Última atualização:{' '}
-          {lastUpdate ? lastUpdate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '--'}
-        </Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} style={styles.mainScroll}>
+        <View style={styles.header}>
+          <Text style={styles.mainTitleLight}>Cotação de{'\n'}Moedas</Text>
+        </View>
+        <View style={styles.quoteBanner}>
+          <Text style={styles.quoteBannerTitle}>Cotação Atual</Text>
+          <Text style={styles.quoteBannerSubtitle}>
+            Última atualização:{' '}
+            {lastUpdate ? lastUpdate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '--'}
+          </Text>
+        </View>
         {currencyCards.map(renderQuoteCard)}
-        <View style={styles.buttonContainer}>
+
+        <View style={styles.refreshButtonWrapper}>
           {loading ? (
             <ActivityIndicator size="large" color="#0c4a6e" />
           ) : (
-            <Button title="Atualizar Cotações" onPress={fetchQuotes} />
+            <TouchableOpacity style={styles.refreshButton} onPress={onRefreshPress}>
+              <Text style={styles.refreshButtonText}>Atualizar Cotações</Text>
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
@@ -175,58 +222,124 @@ export default function App() {
   const [quotes, setQuotes] = useState({ usd: null, eur: null });
   const [lastUpdate, setLastUpdate] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setInitializing(false);
-      if (currentUser) {
-        fetchQuotes();
-      }
     });
 
     return unsubscribe;
   }, []);
 
-  const fetchQuotes = async () => {
+  useEffect(() => {
+    if (user) {
+      fetchQuotes();
+    }
+  }, [user]);
+
+  const normalizeAuthError = (code) => {
+    const map = {
+      'auth/invalid-email': 'E-mail inválido.',
+      'auth/missing-password': 'Informe a senha.',
+      'auth/weak-password': `A senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.`,
+      'auth/email-already-in-use': 'Este e-mail já está em uso.',
+      'auth/invalid-credential': 'E-mail ou senha inválidos.',
+      'auth/user-not-found': 'Usuário não encontrado.',
+      'auth/wrong-password': 'Senha incorreta.',
+      'auth/invalid-login-credentials': 'E-mail ou senha inválidos.',
+      'auth/too-many-requests': 'Muitas tentativas. Tente novamente em instantes.',
+      'auth/network-request-failed': 'Falha de conexão. Verifique sua internet.',
+      'auth/unauthorized-domain':
+        'Domínio não autorizado no Firebase. Adicione localhost nas configurações do Authentication.',
+      'auth/operation-not-allowed': 'Login por e-mail/senha não está habilitado no Firebase.',
+    };
+
+    return map[code] || 'Não foi possível autenticar no momento.';
+  };
+
+  const fetchQuotes = async ({ showSuccessMessage = false, useLocalUpdateTime = false } = {}) => {
     setLoading(true);
     try {
-      const response = await fetch('https://economia.awesomeapi.com.br/json/all');
+      const response = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL');
+      if (!response.ok) {
+        throw new Error('HTTP_ERROR');
+      }
       const data = await response.json();
+      const usd = parseFloat(data?.USDBRL?.bid);
+      const eur = parseFloat(data?.EURBRL?.bid);
+
+      if (!Number.isFinite(usd) || !Number.isFinite(eur)) {
+        throw new Error('INVALID_QUOTE_DATA');
+      }
+
       setQuotes({
-        usd: parseFloat(data.USDBRL.bid),
-        eur: parseFloat(data.EURBRL.bid),
+        usd,
+        eur,
       });
-      setLastUpdate(new Date());
+
+      const updateDate = data?.USDBRL?.create_date
+        ? new Date(data.USDBRL.create_date.replace(' ', 'T'))
+        : new Date();
+
+      const resolvedUpdateDate = Number.isNaN(updateDate.getTime()) ? new Date() : updateDate;
+      setLastUpdate(useLocalUpdateTime ? new Date() : resolvedUpdateDate);
+      if (showSuccessMessage) {
+        Alert.alert('Sucesso', 'Cotações atualizadas.');
+      }
+      return true;
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível carregar as cotações');
+      Alert.alert('Erro', 'Não foi possível carregar as cotações. Tente novamente.');
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
+  const handleManualRefresh = async () => {
+    await fetchQuotes({ showSuccessMessage: true, useLocalUpdateTime: true });
+  };
+
   const handleAuth = async () => {
-    if (!email || !password) {
-      Alert.alert('Erro', 'Informe e-mail e senha');
+    const normalizedEmail = email.trim().toLowerCase();
+    setAuthError('');
+
+    if (!normalizedEmail || !password) {
+      const message = 'Informe e-mail e senha';
+      setAuthError(message);
+      Alert.alert('Erro', message);
       return;
     }
 
+    if (mode === 'signup' && password.length < MIN_PASSWORD_LENGTH) {
+      const message = `A senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.`;
+      setAuthError(message);
+      Alert.alert('Erro', message);
+      return;
+    }
+
+    setAuthLoading(true);
     try {
       if (mode === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
         setUser(userCredential.user);
         Alert.alert('Sucesso', `Conta criada: ${userCredential.user.email}`);
       } else {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
         setUser(userCredential.user);
         Alert.alert('Bem-vindo', `Login feito: ${userCredential.user.email}`);
       }
       setEmail('');
       setPassword('');
-      fetchQuotes();
     } catch (error) {
-      Alert.alert('Erro', error.message);
+      const message = normalizeAuthError(error?.code);
+      setAuthError(message);
+      Alert.alert('Erro', message);
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -237,6 +350,7 @@ export default function App() {
       setQuotes({ usd: null, eur: null });
       setLastUpdate(null);
       setMode('login');
+      setAuthError('');
     } catch (error) {
       Alert.alert('Erro', error.message);
     }
@@ -262,7 +376,7 @@ export default function App() {
                 quotes={quotes}
                 lastUpdate={lastUpdate}
                 loading={loading}
-                fetchQuotes={fetchQuotes}
+                onRefreshPress={handleManualRefresh}
                 handleLogout={handleLogout}
               />
             )}
@@ -279,6 +393,9 @@ export default function App() {
                 password={password}
                 setPassword={setPassword}
                 handleAuth={handleAuth}
+                authLoading={authLoading}
+                authError={authError}
+                clearAuthError={() => setAuthError('')}
               />
             )}
           </Stack.Screen>
@@ -287,155 +404,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#eef2ff',
-  },
-  authBox: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  header: {
-    paddingTop: 48,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    backgroundColor: '#0f172a',
-  },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  mainTitleLight: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  subtitle: {
-    fontSize: 16,
-    marginTop: 10,
-    color: '#334155',
-  },
-  lastUpdate: {
-    marginTop: 8,
-    color: '#cbd5e1',
-    fontSize: 14,
-  },
-  content: {
-    padding: 24,
-    paddingBottom: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  flag: {
-    fontSize: 32,
-    marginRight: 14,
-  },
-  cardTitle: {
-    flex: 1,
-  },
-  cardName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  cardCode: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 4,
-  },
-  cardValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  buttonContainer: {
-    marginTop: 12,
-    marginHorizontal: 24,
-  },
-  footer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#cbd5e1',
-    backgroundColor: '#fff',
-  },
-  userRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  userText: {
-    color: '#334155',
-    fontSize: 14,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  navItem: {
-    color: '#94a3b8',
-    fontSize: 14,
-  },
-  navItemActive: {
-    color: '#0f172a',
-    fontWeight: '700',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    color: '#0f172a',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#fff',
-    marginHorizontal: 4,
-  },
-  toggleActive: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
-  },
-  toggleText: {
-    textAlign: 'center',
-    color: '#334155',
-    fontWeight: '700',
-  },
-  toggleTextActive: {
-    color: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#eef2ff',
-  },
-});
