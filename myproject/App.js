@@ -52,6 +52,62 @@ const currencyCards = [
     countryCode: 'PT', 
     code: 'EUR/BRL',
   },
+  {
+    id: 'gbp',
+    label: 'GBP / BRL',
+    subtitle: '1 Libra Esterlina',
+    countryCode: 'GB', 
+    code: 'GBP/BRL',
+  },
+  {
+    id: 'jpy',
+    label: 'JPY / BRL',
+    subtitle: '1 Iene Japonês',
+    countryCode: 'JP', 
+    code: 'JPY/BRL',
+  },
+  {
+    id: 'cad',
+    label: 'CAD / BRL',
+    subtitle: '1 Dólar Canadense',
+    countryCode: 'CA', 
+    code: 'CAD/BRL',
+  },
+  {
+    id: 'aud',
+    label: 'AUD / BRL',
+    subtitle: '1 Dólar Australiano',
+    countryCode: 'AU', 
+    code: 'AUD/BRL',
+  },
+  {
+    id: 'chf',
+    label: 'CHF / BRL',
+    subtitle: '1 Franco Suíço',
+    countryCode: 'CH', 
+    code: 'CHF/BRL',
+  },
+  {
+    id: 'ars',
+    label: 'ARS / BRL',
+    subtitle: '1 Peso Argentino',
+    countryCode: 'AR', 
+    code: 'ARS/BRL',
+  },
+  {
+    id: 'clp',
+    label: 'CLP / BRL',
+    subtitle: '1 Peso Chileno',
+    countryCode: 'CL', 
+    code: 'CLP/BRL',
+  },
+  {
+    id: 'mxn',
+    label: 'MXN / BRL',
+    subtitle: '1 Peso Mexicano',
+    countryCode: 'MX', 
+    code: 'MXN/BRL',
+  },
 ];
 
 const getFlagUrl = (countryCode) => `https://flagsapi.com/${countryCode}/flat/64.png`; // flagsapi.com
@@ -219,7 +275,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null);
-  const [quotes, setQuotes] = useState({ usd: null, eur: null });
+  const [quotes, setQuotes] = useState({ usd: null, eur: null, gbp: null, jpy: null, cad: null, aud: null, chf: null, ars: null, clp: null, mxn: null });
   const [lastUpdate, setLastUpdate] = useState(null);
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -264,21 +320,37 @@ export default function App() {
   const fetchQuotes = async ({ showSuccessMessage = false, useLocalUpdateTime = false } = {}) => {
     setLoading(true);
     try {
-      const response = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL');
+      const response = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,JPY-BRL,CAD-BRL,AUD-BRL,CHF-BRL,ARS-BRL,CLP-BRL,MXN-BRL');
       if (!response.ok) {
         throw new Error('HTTP_ERROR');
       }
       const data = await response.json();
       const usd = parseFloat(data?.USDBRL?.bid);
       const eur = parseFloat(data?.EURBRL?.bid);
+      const gbp = parseFloat(data?.GBPBRL?.bid);
+      const jpy = parseFloat(data?.JPYBRL?.bid);
+      const cad = parseFloat(data?.CADBRL?.bid);
+      const aud = parseFloat(data?.AUDBRL?.bid);
+      const chf = parseFloat(data?.CHFBRL?.bid);
+      const ars = parseFloat(data?.ARSBRL?.bid);
+      const clp = parseFloat(data?.CLPBRL?.bid);
+      const mxn = parseFloat(data?.MXNBRL?.bid);
 
-      if (!Number.isFinite(usd) || !Number.isFinite(eur)) {
+      if (!Number.isFinite(usd) || !Number.isFinite(eur) || !Number.isFinite(gbp) || !Number.isFinite(jpy) || !Number.isFinite(cad) || !Number.isFinite(aud) || !Number.isFinite(chf) || !Number.isFinite(ars) || !Number.isFinite(clp) || !Number.isFinite(mxn)) {
         throw new Error('INVALID_QUOTE_DATA');
       }
 
       setQuotes({
         usd,
         eur,
+        gbp,
+        jpy,
+        cad,
+        aud,
+        chf,
+        ars,
+        clp,
+        mxn,
       });
 
       const updateDate = data?.USDBRL?.create_date
@@ -347,7 +419,7 @@ export default function App() {
     try {
       await signOut(auth);
       setUser(null);
-      setQuotes({ usd: null, eur: null });
+      setQuotes({ usd: null, eur: null, gbp: null, jpy: null, cad: null, aud: null, chf: null, ars: null, clp: null, mxn: null });
       setLastUpdate(null);
       setMode('login');
       setAuthError('');
