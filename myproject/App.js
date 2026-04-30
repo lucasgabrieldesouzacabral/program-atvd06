@@ -1,17 +1,17 @@
-import 'react-native-gesture-handler';
-import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import { Text, View, TextInput, Button, Alert, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { StatusBar } from 'expo-status-bar';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
+  createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Button, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import 'react-native-gesture-handler';
 import styles from './AppStyles';
 
 const firebaseConfig = {
@@ -29,176 +29,53 @@ const Stack = createNativeStackNavigator();
 const MIN_PASSWORD_LENGTH = 6;
 
 const formatCurrency = (value) => {
-  return Number(value).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  if (value === null || value === undefined) return '...';
+ 
+  return 'R$ ' + value.toFixed(2).replace('.', ',');
 };
 
 const currencyCards = [
-  {
-    id: 'usd',
-    label: 'USD / BRL',
-    subtitle: '1 Dólar Americano',
-    countryCode: 'US', 
-    code: 'USD/BRL',
-  },
-  {
-    id: 'eur',
-    label: 'EUR / BRL',
-    subtitle: '1 Euro',
-    countryCode: 'PT', 
-    code: 'EUR/BRL',
-  },
-  {
-    id: 'gbp',
-    label: 'GBP / BRL',
-    subtitle: '1 Libra Esterlina',
-    countryCode: 'GB', 
-    code: 'GBP/BRL',
-  },
-  {
-    id: 'jpy',
-    label: 'JPY / BRL',
-    subtitle: '1 Iene Japonês',
-    countryCode: 'JP', 
-    code: 'JPY/BRL',
-  },
-  {
-    id: 'cad',
-    label: 'CAD / BRL',
-    subtitle: '1 Dólar Canadense',
-    countryCode: 'CA', 
-    code: 'CAD/BRL',
-  },
-  {
-    id: 'aud',
-    label: 'AUD / BRL',
-    subtitle: '1 Dólar Australiano',
-    countryCode: 'AU', 
-    code: 'AUD/BRL',
-  },
-  {
-    id: 'chf',
-    label: 'CHF / BRL',
-    subtitle: '1 Franco Suíço',
-    countryCode: 'CH', 
-    code: 'CHF/BRL',
-  },
-  {
-    id: 'ars',
-    label: 'ARS / BRL',
-    subtitle: '1 Peso Argentino',
-    countryCode: 'AR', 
-    code: 'ARS/BRL',
-  },
-  {
-    id: 'clp',
-    label: 'CLP / BRL',
-    subtitle: '1 Peso Chileno',
-    countryCode: 'CL', 
-    code: 'CLP/BRL',
-  },
-  {
-    id: 'mxn',
-    label: 'MXN / BRL',
-    subtitle: '1 Peso Mexicano',
-    countryCode: 'MX', 
-    code: 'MXN/BRL',
-  },
+  { id: 'usd', label: 'USD / BRL', subtitle: '1 Dólar Americano', countryCode: 'US' },
+  { id: 'eur', label: 'EUR / BRL', subtitle: '1 Euro', countryCode: 'PT' },
+  { id: 'gbp', label: 'GBP / BRL', subtitle: '1 Libra Esterlina', countryCode: 'GB' },
+  { id: 'jpy', label: 'JPY / BRL', subtitle: '1 Iene Japonês', countryCode: 'JP' },
+  { id: 'cad', label: 'CAD / BRL', subtitle: '1 Dólar Canadense', countryCode: 'CA' },
+  { id: 'aud', label: 'AUD / BRL', subtitle: '1 Dólar Australiano', countryCode: 'AU' },
+  { id: 'chf', label: 'CHF / BRL', subtitle: '1 Franco Suíço', countryCode: 'CH' },
+  { id: 'ars', label: 'ARS / BRL', subtitle: '1 Peso Argentino', countryCode: 'AR' },
+  { id: 'clp', label: 'CLP / BRL', subtitle: '1 Peso Chileno', countryCode: 'CL' },
+  { id: 'mxn', label: 'MXN / BRL', subtitle: '1 Peso Mexicano', countryCode: 'MX' },
 ];
 
-const getFlagUrl = (countryCode) => `https://flagsapi.com/${countryCode}/flat/64.png`; // flagsapi.com
+const getFlagUrl = (countryCode) => `https://flagsapi.com/${countryCode}/flat/64.png`;
 
 function CurrencyFlags({ countryCode }) {
   return (
     <View style={styles.flagContainer}>
-      <Image
-        source={{ uri: getFlagUrl(countryCode) }}
-        style={styles.primaryFlag}
-        resizeMode="cover"
-      />
-      <Image
-        source={{ uri: getFlagUrl('BR') }}
-        style={styles.secondaryFlag}
-        resizeMode="cover"
-      />
+      <Image source={{ uri: getFlagUrl(countryCode) }} style={styles.primaryFlag} resizeMode="cover" />
+      <Image source={{ uri: getFlagUrl('BR') }} style={styles.secondaryFlag} resizeMode="cover" />
     </View>
   );
 }
 
-function AuthScreen({
-  mode,
-  setMode,
-  email,
-  setEmail,
-  password,
-  setPassword,
-  handleAuth,
-  authLoading,
-  authError,
-  clearAuthError,
-}) {
+function AuthScreen({ mode, setMode, email, setEmail, password, setPassword, handleAuth, authLoading, authError, clearAuthError }) {
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.authBox}>
         <Text style={styles.mainTitle}>Cotação de Moedas</Text>
         <Text style={styles.subtitle}>Faça login ou cadastre-se para continuar</Text>
-
         <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[styles.toggleButton, mode === 'login' && styles.toggleActive]}
-            onPress={() => {
-              clearAuthError();
-              setMode('login');
-            }}
-          >
+          <TouchableOpacity style={[styles.toggleButton, mode === 'login' && styles.toggleActive]} onPress={() => { clearAuthError(); setMode('login'); }}>
             <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Entrar</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleButton, mode === 'signup' && styles.toggleActive]}
-            onPress={() => {
-              clearAuthError();
-              setMode('signup');
-            }}
-          >
+          <TouchableOpacity style={[styles.toggleButton, mode === 'signup' && styles.toggleActive]} onPress={() => { clearAuthError(); setMode('signup'); }}>
             <Text style={[styles.toggleText, mode === 'signup' && styles.toggleTextActive]}>Cadastrar</Text>
           </TouchableOpacity>
         </View>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={email}
-          onChangeText={(text) => {
-            clearAuthError();
-            setEmail(text);
-          }}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          secureTextEntry
-          value={password}
-          onChangeText={(text) => {
-            clearAuthError();
-            setPassword(text);
-          }}
-        />
+        <TextInput style={styles.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} value={email} onChangeText={(text) => { clearAuthError(); setEmail(text); }} />
+        <TextInput style={styles.input} placeholder="Senha" secureTextEntry value={password} onChangeText={(text) => { clearAuthError(); setPassword(text); }} />
         <View style={styles.buttonContainer}>
-          {authLoading ? (
-            <ActivityIndicator size="large" color="#0c4a6e" />
-          ) : (
-            <Button title={mode === 'login' ? 'Entrar' : 'Cadastrar'} onPress={handleAuth} />
-          )}
+          {authLoading ? <ActivityIndicator size="large" color="#0c4a6e" /> : <Button title={mode === 'login' ? 'Entrar' : 'Cadastrar'} onPress={handleAuth} />}
         </View>
         {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
       </View>
@@ -208,20 +85,25 @@ function AuthScreen({
 }
 
 function HomeScreen({ user, quotes, lastUpdate, loading, onRefreshPress, handleLogout }) {
-  const renderQuoteCard = ({ id, label, subtitle, countryCode }) => { //flags das moedas mrbeast
-    const value = quotes[id];
+  const sortedCurrencies = Object.keys(quotes).sort();
+
+  const renderQuoteCard = (key) => {
+    const value = quotes[key]?.bid;
+    const countryCode = key.slice(0, 2).toUpperCase();
+    const currencyName = quotes[key]?.name || key;
+    
     return (
-      <View key={id} style={styles.card}>
+      <View key={key} style={styles.card}>
         <View style={styles.cardMainRow}>
           <View style={styles.cardHeader}>
             <CurrencyFlags countryCode={countryCode} />
             <View style={styles.cardTitle}>
-              <Text style={styles.cardName}>{label}</Text>
-              <Text style={styles.cardCode}>{subtitle}</Text>
+              <Text style={styles.cardName}>{key} / BRL</Text>
+              <Text style={styles.cardCode}>{currencyName}</Text>
             </View>
           </View>
           <Text style={styles.cardValue}>
-            {value === null ? '...' : formatCurrency(value)}
+            {value ? `R$ ${value.toFixed(2).replace('.', ',')}` : '...'}
           </Text>
         </View>
       </View>
@@ -237,23 +119,15 @@ function HomeScreen({ user, quotes, lastUpdate, loading, onRefreshPress, handleL
         <View style={styles.quoteBanner}>
           <Text style={styles.quoteBannerTitle}>Cotação Atual</Text>
           <Text style={styles.quoteBannerSubtitle}>
-            Última atualização:{' '}
-            {lastUpdate ? lastUpdate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '--'}
+            Última atualização: {lastUpdate ? lastUpdate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '--'}
           </Text>
+          <Text style={styles.quoteBannerSubtitle}>Total: {Object.keys(quotes).length} moedas</Text>
         </View>
-        {currencyCards.map(renderQuoteCard)}
-
+        {sortedCurrencies.map(renderQuoteCard)}
         <View style={styles.refreshButtonWrapper}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#0c4a6e" />
-          ) : (
-            <TouchableOpacity style={styles.refreshButton} onPress={onRefreshPress}>
-              <Text style={styles.refreshButtonText}>Atualizar Cotações</Text>
-            </TouchableOpacity>
-          )}
+          {loading ? <ActivityIndicator size="large" color="#0c4a6e" /> : <TouchableOpacity style={styles.refreshButton} onPress={onRefreshPress}><Text style={styles.refreshButtonText}>Atualizar Cotações</Text></TouchableOpacity>}
         </View>
       </ScrollView>
-
       <View style={styles.footer}>
         <View style={styles.userRow}>
           <Text style={styles.userText}>Logado como: {user?.email}</Text>
@@ -275,7 +149,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null);
-  const [quotes, setQuotes] = useState({ usd: null, eur: null, gbp: null, jpy: null, cad: null, aud: null, chf: null, ars: null, clp: null, mxn: null });
+  const [quotes, setQuotes] = useState({});
   const [lastUpdate, setLastUpdate] = useState(null);
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -287,7 +161,6 @@ export default function App() {
       setUser(currentUser);
       setInitializing(false);
     });
-
     return unsubscribe;
   }, []);
 
@@ -309,63 +182,34 @@ export default function App() {
       'auth/invalid-login-credentials': 'E-mail ou senha inválidos.',
       'auth/too-many-requests': 'Muitas tentativas. Tente novamente em instantes.',
       'auth/network-request-failed': 'Falha de conexão. Verifique sua internet.',
-      'auth/unauthorized-domain':
-        'Domínio não autorizado no Firebase. Adicione localhost nas configurações do Authentication.',
-      'auth/operation-not-allowed': 'Login por e-mail/senha não está habilitado no Firebase.',
     };
-
     return map[code] || 'Não foi possível autenticar no momento.';
   };
 
   const fetchQuotes = async ({ showSuccessMessage = false, useLocalUpdateTime = false } = {}) => {
     setLoading(true);
     try {
-      const response = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,JPY-BRL,CAD-BRL,AUD-BRL,CHF-BRL,ARS-BRL,CLP-BRL,MXN-BRL');
-      if (!response.ok) {
-        throw new Error('HTTP_ERROR');
-      }
+      const response = await fetch('https://economia.awesomeapi.com.br/json/all');
       const data = await response.json();
-      const usd = parseFloat(data?.USDBRL?.bid);
-      const eur = parseFloat(data?.EURBRL?.bid);
-      const gbp = parseFloat(data?.GBPBRL?.bid);
-      const jpy = parseFloat(data?.JPYBRL?.bid);
-      const cad = parseFloat(data?.CADBRL?.bid);
-      const aud = parseFloat(data?.AUDBRL?.bid);
-      const chf = parseFloat(data?.CHFBRL?.bid);
-      const ars = parseFloat(data?.ARSBRL?.bid);
-      const clp = parseFloat(data?.CLPBRL?.bid);
-      const mxn = parseFloat(data?.MXNBRL?.bid);
-
-      if (!Number.isFinite(usd) || !Number.isFinite(eur) || !Number.isFinite(gbp) || !Number.isFinite(jpy) || !Number.isFinite(cad) || !Number.isFinite(aud) || !Number.isFinite(chf) || !Number.isFinite(ars) || !Number.isFinite(clp) || !Number.isFinite(mxn)) {
-        throw new Error('INVALID_QUOTE_DATA');
+      
+      const newQuotes = {};
+      
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof value === 'object' && value.bid) {
+          newQuotes[key] = {
+            bid: parseFloat(value.bid),
+            pctChange: value.pctChange ? parseFloat(value.pctChange) : null,
+            name: value.name,
+          };
+        }
       }
-
-      setQuotes({
-        usd,
-        eur,
-        gbp,
-        jpy,
-        cad,
-        aud,
-        chf,
-        ars,
-        clp,
-        mxn,
-      });
-
-      const updateDate = data?.USDBRL?.create_date
-        ? new Date(data.USDBRL.create_date.replace(' ', 'T'))
-        : new Date();
-
-      const resolvedUpdateDate = Number.isNaN(updateDate.getTime()) ? new Date() : updateDate;
-      setLastUpdate(useLocalUpdateTime ? new Date() : resolvedUpdateDate);
-      if (showSuccessMessage) {
-        Alert.alert('Sucesso', 'Cotações atualizadas.');
-      }
-      return true;
+      
+      setQuotes(newQuotes);
+      setLastUpdate(new Date());
+      console.log('Cotações carregadas:', Object.keys(newQuotes).length, 'moedas');
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível carregar as cotações. Tente novamente.');
-      return false;
+      Alert.alert('Erro', 'Não foi possível carregar as cotações.');
+      console.error('Erro ao buscar:', error);
     } finally {
       setLoading(false);
     }
@@ -378,21 +222,18 @@ export default function App() {
   const handleAuth = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     setAuthError('');
-
     if (!normalizedEmail || !password) {
       const message = 'Informe e-mail e senha';
       setAuthError(message);
       Alert.alert('Erro', message);
       return;
     }
-
     if (mode === 'signup' && password.length < MIN_PASSWORD_LENGTH) {
       const message = `A senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.`;
       setAuthError(message);
       Alert.alert('Erro', message);
       return;
     }
-
     setAuthLoading(true);
     try {
       if (mode === 'signup') {
@@ -406,6 +247,8 @@ export default function App() {
       }
       setEmail('');
       setPassword('');
+      // Buscar cotações após login
+      fetchQuotes();
     } catch (error) {
       const message = normalizeAuthError(error?.code);
       setAuthError(message);
@@ -419,7 +262,7 @@ export default function App() {
     try {
       await signOut(auth);
       setUser(null);
-      setQuotes({ usd: null, eur: null, gbp: null, jpy: null, cad: null, aud: null, chf: null, ars: null, clp: null, mxn: null });
+      setQuotes({ });
       setLastUpdate(null);
       setMode('login');
       setAuthError('');
@@ -441,35 +284,11 @@ export default function App() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <Stack.Screen name="Home">
-            {(props) => (
-              <HomeScreen
-                {...props}
-                user={user}
-                quotes={quotes}
-                lastUpdate={lastUpdate}
-                loading={loading}
-                onRefreshPress={handleManualRefresh}
-                handleLogout={handleLogout}
-              />
-            )}
+            {(props) => <HomeScreen {...props} user={user} quotes={quotes} lastUpdate={lastUpdate} loading={loading} onRefreshPress={handleManualRefresh} handleLogout={handleLogout} />}
           </Stack.Screen>
         ) : (
           <Stack.Screen name="Auth">
-            {(props) => (
-              <AuthScreen
-                {...props}
-                mode={mode}
-                setMode={setMode}
-                email={email}
-                setEmail={setEmail}
-                password={password}
-                setPassword={setPassword}
-                handleAuth={handleAuth}
-                authLoading={authLoading}
-                authError={authError}
-                clearAuthError={() => setAuthError('')}
-              />
-            )}
+            {(props) => <AuthScreen {...props} mode={mode} setMode={setMode} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} authLoading={authLoading} authError={authError} clearAuthError={() => setAuthError('')} />}
           </Stack.Screen>
         )}
       </Stack.Navigator>
